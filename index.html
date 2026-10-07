@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>더하기 1</title>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" defer></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d0d1a;
+  --surface: #13132a;
+  --blue: #4da6ff;
+  --orange: #ff9f43;
+  --green: #26de81;
+  --red: #fc5c65;
+  --purple: #b794ff;
+  --dim: #2a2a50;
+  --text: #dde0ff;
+  --text-dim: #7777aa;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 380px;
+}
+.screen.active { display: flex; }
+
+.title {
+  font-size: 48px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--blue), var(--orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -2px;
+}
+
+.mode-tabs {
+  display: flex;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid #1e1e3a;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.mode-tab {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.mode-tab.on {
+  background: linear-gradient(135deg, var(--blue), #6e5bff);
+  color: #fff;
+}
+
+.rules-box {
+  background: var(--surface);
+  border: 1px solid #1e1e3a;
+  border-radius: 14px;
+  padding: 16px 20px;
+  width: 100%;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+
+.rules-example {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 4px;
+  text-align: center;
+  margin: 6px 0 2px;
+}
+
+.exp-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(183,148,255,.15);
+  color: var(--purple);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+
+.legend { display: flex; gap: 12px; margin-top: 10px; font-size: 12px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.dot-blue   { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); }
+.dot-gray   { width: 10px; height: 10px; border-radius: 50%; background: #6655cc; }
+.dot-orange { width: 10px; height: 10px; border-radius: 50%; background: var(--orange); }
+
+.notice {
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(255,159,67,.08);
+  border: 1px solid rgba(255,159,67,.2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  width: 100%;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.setting-block { width: 100%; }
+
+.setting-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.setting-info {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.chip-row { display: flex; gap: 8px; }
+
+.chip {
+  flex: 1;
+  padding: 10px 0;
+  border: 1px solid #1e1e3a;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all .15s;
+}
+
+.chip:hover { border-color: #333366; color: var(--text); }
+.chip.on    { border-color: var(--blue); color: var(--blue); background: rgba(77,166,255,.1); }
+.chip.hidden { display: none; }
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid #1e1e3a;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.toggle-row input { width: 16px; height: 16px; cursor: pointer; }
+
+.btn {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+}
+.btn:active { transform: scale(.98); }
+.btn-primary  { background: linear-gradient(135deg, var(--blue), #6e5bff); color: #fff; }
+.btn-secondary{ background: var(--surface); color: var(--text-dim); border: 1px solid #1e1e3a; }
+
+.score-row {
+  display: flex;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid #1e1e3a;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.score-item {
+  flex: 1;
+  padding: 11px 0;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: .5px;
+  color: var(--text-dim);
+}
+
+.score-item + .score-item { border-left: 1px solid #1e1e3a; }
+
+.score-val {
+  display: block;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.card {
+  width: 100%;
+  height: 140px;
+  background: #fff;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 16px 40px rgba(0,0,0,.55);
+}
+
+#card-number {
+  font-size: 60px;
+  font-weight: 900;
+  color: #1a1a35;
+  letter-spacing: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.card.exp-mode #card-number {
+  font-size: 84px;
+  letter-spacing: 0;
+}
+
+.card.dim { background: #e9e9f2; }
+.card.dim #card-number { color: #b0b0c0; font-size: 18px; letter-spacing: 4px; }
+
+@keyframes numIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.num-in { animation: numIn .18s ease forwards; }
+
+.beat-track {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.beat-labels { display: flex; width: 100%; }
+
+.bl {
+  flex: 1;
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: .3px;
+  color: var(--text-dim);
+  transition: color .1s;
+}
+
+.bl.lit { color: var(--text); }
+
+.beat-row { display: flex; gap: 8px; }
+
+.bd {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: background .08s, transform .08s, box-shadow .08s;
+}
+
+.bd.read   { background: var(--blue);   transform: scale(1.5); box-shadow: 0 0 10px var(--blue); }
+.bd.rest   { background: #8877dd;        transform: scale(1.3); box-shadow: 0 0 6px #8877dd; }
+.bd.answer { background: var(--orange);  transform: scale(1.5); box-shadow: 0 0 10px var(--orange); }
+
+.output-boxes {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+}
+
+.obox {
+  flex: 1;
+  max-width: 70px;
+  height: 64px;
+  border: 2px solid var(--dim);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--text-dim);
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+  transition: all .15s;
+}
+
+.obox.active { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 0 3px rgba(255,159,67,.18); }
+.obox.filled { color: var(--text); border-color: #444477; }
+.obox.correct { border-color: var(--green); color: var(--green); background: rgba(38,222,129,.08); }
+.obox.wrong { border-color: var(--red); color: var(--red); background: rgba(252,92,101,.08); }
+
+.answer-display {
+  width: 100%;
+  padding: 14px 20px;
+  background: var(--surface);
+  border: 2px solid var(--dim);
+  border-radius: 16px;
+  text-align: center;
+  transition: all .2s;
+  position: relative;
+}
+
+.digit-line {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: 8px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.raw-transcript {
+  font-size: 12px;
+  color: var(--text-dim);
+  min-height: 16px;
+  margin-top: 4px;
+}
+
+.mic-pill {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--dim);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.answer-display.listening { border-color: var(--orange); background: rgba(255,159,67,.06); box-shadow: 0 0 0 4px rgba(255,159,67,.12); }
+.answer-display.listening .mic-pill { border-color: var(--orange); color: var(--orange); }
+.answer-display.listening .mic-pill::before { content: '● '; animation: micpulse 1s ease-in-out infinite; }
+
+@keyframes micpulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+.answer-display.correct { border-color: var(--green); background: rgba(38,222,129,.07); box-shadow: 0 0 0 4px rgba(38,222,129,.12); }
+.answer-display.correct .digit-line { color: var(--green); }
+.answer-display.correct .mic-pill { border-color: var(--green); color: var(--green); }
+.answer-display.wrong { border-color: var(--red); background: rgba(252,92,101,.07); box-shadow: 0 0 0 4px rgba(252,92,101,.12); }
+.answer-display.wrong .digit-line { color: var(--red); }
+.answer-display.wrong .mic-pill { border-color: var(--red); color: var(--red); }
+
+.pupil-mini {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid #1e1e3a;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.pupil-mini svg { flex-shrink: 0; }
+.pupil-mini .pupil-meta { display: flex; flex-direction: column; gap: 2px; }
+.pupil-mini .pupil-meta .pl { color: var(--text-dim); font-size: 10px; letter-spacing: .5px; text-transform: uppercase; }
+.pupil-mini .pupil-meta .pv { color: var(--text); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+#pupil-video { display: none; }
+#pupil-canvas { display: none; }
+
+#feedback {
+  height: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+#feedback.correct { color: var(--green); }
+#feedback.wrong   { color: var(--red); }
+#feedback.miss    { color: #ff7675; }
+#feedback.info    { color: var(--purple); }
+
+.result-big {
+  font-size: 96px;
+  font-weight: 900;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--blue), var(--orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.result-sub { font-size: 16px; color: var(--text-dim); margin-top: -6px; }
+.result-stats { display: flex; gap: 30px; text-align: center; margin-top: 8px; }
+.rs-val   { display: block; font-size: 34px; font-weight: 800; }
+.rs-label { font-size: 11px; color: var(--text-dim); }
+
+.pupil-summary {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid #1e1e3a;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+
+.pupil-summary .row { display: flex; justify-content: space-between; }
+.pupil-summary .row .val { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.pupil-chart-box {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid #1e1e3a;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.chart-title { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; letter-spacing: .3px; }
+#pupil-chart { width: 100%; height: 160px; display: block; }
+.chart-legend { display: flex; gap: 12px; margin-top: 8px; font-size: 11px; color: var(--text-dim); flex-wrap: wrap; }
+.chart-legend span { display: flex; align-items: center; gap: 4px; }
+.chart-legend i { width: 12px; height: 8px; border-radius: 2px; display: inline-block; }
+
+.unsupported {
+  text-align: center;
+  padding: 16px;
+  background: rgba(252,92,101,.08);
+  border: 1px solid rgba(252,92,101,.3);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+  width: 100%;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ START ══ -->
+<div class="screen active" id="screen-start">
+  <div class="title" id="game-title">더하기 1</div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab on" id="tab-game">게임 모드</button>
+    <button class="mode-tab" id="tab-exp">실험 모드</button>
+  </div>
+
+  <div class="rules-box" id="game-rules">
+    <div id="rules-text">각 자리에 1을 더한 수를 박자에 맞춰 <strong style="color:var(--orange)">한국어 수</strong>로 읽으세요. (9 + 1 = 0)</div>
+    <div class="rules-example" id="rules-example">5294 <span style="color:var(--orange)">→</span> "육천삼백오"</div>
+    <div style="font-size:12px;text-align:center;margin-top:4px;color:var(--text-dim);">천/백/십 단위를 붙여 한 수로 읽기</div>
+    <div class="legend">
+      <div class="legend-item"><div class="dot-blue"></div>읽기</div>
+      <div class="legend-item"><div class="dot-gray"></div>쉬기</div>
+      <div class="legend-item"><div class="dot-orange"></div>말하기</div>
+    </div>
+  </div>
+
+  <div class="rules-box" id="exp-rules" style="display:none;">
+    <div><span class="exp-badge">Kahneman &amp; Beatty 1966</span></div>
+    <div style="margin-top:8px;">한 박자에 한 자리씩 4자리 등장 → 2박자 유지 → 한 박자에 한 자리씩 +N 답 (총 10박자)</div>
+    <div class="rules-example" id="exp-example">5 · 2 · 9 · 4 <span style="color:var(--orange)">→</span> 6 · 3 · 0 · 5</div>
+    <div style="font-size:11px;text-align:center;color:var(--text-dim);">자리별 한 글자씩 발음: "육 · 삼 · 공 · 오"</div>
+    <div style="font-size:11px;margin-top:8px;color:var(--text-dim);line-height:1.5;">팁: 한국어 단음절은 인식이 어렵습니다. 또렷이, 1초당 한 글자씩, 헤드폰 권장. 6은 "육", 0은 "영" 또는 "공" 둘 다 인정.</div>
+  </div>
+
+  <div id="browser-warning" class="unsupported" style="display:none;">
+    음성 인식 미지원 브라우저. Chrome / Edge / Safari 14.5+ 사용.
+  </div>
+
+  <div class="setting-block">
+    <div class="setting-label">더하는 수</div>
+    <div class="chip-row" id="add-row">
+      <button class="chip on" data-add="1">+1</button>
+      <button class="chip" data-add="2">+2</button>
+      <button class="chip" data-add="3">+3</button>
+    </div>
+  </div>
+
+  <div class="setting-block" id="bpm-block">
+    <div class="setting-label">속도 (BPM)</div>
+    <div class="chip-row" id="bpm-row">
+      <button class="chip" data-bpm="40">40</button>
+      <button class="chip on" data-bpm="50">50</button>
+      <button class="chip" data-bpm="60">60</button>
+      <button class="chip" data-bpm="80">80</button>
+      <button class="chip" data-bpm="100">100</button>
+    </div>
+    <div class="setting-info" id="exp-bpm-info" style="display:none;">실험 모드는 60 BPM 고정 (Kahneman 원형).</div>
+  </div>
+
+  <div class="setting-block">
+    <div class="setting-label">시행 수</div>
+    <div class="chip-row">
+      <button class="chip" data-rounds="5">5</button>
+      <button class="chip on" data-rounds="10">10</button>
+      <button class="chip" data-rounds="20">20</button>
+      <button class="chip" data-rounds="30">30</button>
+    </div>
+  </div>
+
+  <div class="setting-block" id="pupil-block" style="display:none;">
+    <div class="setting-label">동공 측정</div>
+    <label class="toggle-row">
+      <input type="checkbox" id="pupil-toggle">
+      <span>웹캠으로 동공-홍채 비율(PIR) 측정</span>
+    </label>
+    <div class="setting-info">MediaPipe Face Mesh로 홍채 위치를 잡고, 홍채 내부의 어두운 픽셀 비율을 동공 신호로 사용합니다. IR 동공계 대비 정확도는 낮으며 상대적 추세 확인용입니다.</div>
+  </div>
+
+  <button class="btn btn-primary" id="btn-start">시작하기</button>
+</div>
+
+<!-- ══ GAME ══ -->
+<div class="screen" id="screen-game">
+  <div class="score-row">
+    <div class="score-item">정답<span class="score-val" id="s-score">0</span></div>
+    <div class="score-item">연속<span class="score-val" id="s-streak">0</span></div>
+    <div class="score-item">시행<span class="score-val" id="s-round">-</span></div>
+  </div>
+
+  <div class="card" id="card">
+    <div id="card-number">?</div>
+  </div>
+
+  <div class="beat-track">
+    <div class="beat-labels" id="beat-labels"></div>
+    <div class="beat-row" id="beat-row"></div>
+  </div>
+
+  <div class="output-boxes" id="output-boxes" style="display:none;">
+    <div class="obox" id="ob0">_</div>
+    <div class="obox" id="ob1">_</div>
+    <div class="obox" id="ob2">_</div>
+    <div class="obox" id="ob3">_</div>
+  </div>
+
+  <div class="answer-display" id="answer-display">
+    <div class="mic-pill" id="mic-pill">대기</div>
+    <div class="digit-line" id="digit-line">_ _ _ _</div>
+    <div class="raw-transcript" id="raw-transcript">&nbsp;</div>
+  </div>
+
+  <div class="pupil-mini" id="pupil-mini" style="display:none;">
+    <svg viewBox="0 0 60 60" width="48" height="48">
+      <circle cx="30" cy="30" r="28" fill="#fff" stroke="#1e1e3a" stroke-width="1"/>
+      <circle cx="30" cy="30" r="18" fill="#5a78b8"/>
+      <circle cx="30" cy="30" r="6" fill="#0a0a18" id="pupil-svg"/>
+    </svg>
+    <div class="pupil-meta">
+      <div class="pl">PIR</div>
+      <div class="pv" id="pir-val">-</div>
+    </div>
+    <div class="pupil-meta" style="margin-left:auto;text-align:right;">
+      <div class="pl">상태</div>
+      <div class="pv" id="pupil-status" style="font-size:11px;">초기화...</div>
+    </div>
+  </div>
+
+  <video id="pupil-video" muted playsinline></video>
+  <canvas id="pupil-canvas"></canvas>
+
+  <div id="feedback"></div>
+
+  <button class="btn btn-secondary" id="btn-stop">중단</button>
+</div>
+
+<!-- ══ RESULTS ══ -->
+<div class="screen" id="screen-results">
+  <div class="result-big" id="r-score">0</div>
+  <div class="result-sub" id="r-sub">/ 10 정답</div>
+  <div class="result-stats">
+    <div><span class="rs-val" id="r-streak">0</span><span class="rs-label">최고 연속</span></div>
+    <div><span class="rs-val" id="r-missed">0</span><span class="rs-label">시간 초과</span></div>
+  </div>
+
+  <div class="pupil-summary" id="pupil-summary" style="display:none;">
+    <div class="row"><span>기준선 PIR</span><span class="val" id="ps-base">-</span></div>
+    <div class="row"><span>입력 단계 평균</span><span class="val" id="ps-input">-</span></div>
+    <div class="row"><span>유지 단계 평균</span><span class="val" id="ps-hold">-</span></div>
+    <div class="row"><span>출력 단계 평균</span><span class="val" id="ps-output">-</span></div>
+    <div class="row"><span>최대 확장 (기준 대비)</span><span class="val" id="ps-peak">-</span></div>
+  </div>
+
+  <div class="pupil-chart-box" id="pupil-chart-box" style="display:none;">
+    <div class="chart-title">동공 확장 시계열 (PIR)</div>
+    <canvas id="pupil-chart"></canvas>
+    <div class="chart-legend">
+      <span><i style="background:rgba(77,166,255,.45)"></i>입력</span>
+      <span><i style="background:rgba(136,119,221,.45)"></i>유지</span>
+      <span><i style="background:rgba(255,159,67,.45)"></i>출력</span>
+      <span><i style="background:#7777aa"></i>기준선</span>
+    </div>
+  </div>
+
+  <button class="btn btn-primary"   id="btn-restart" style="margin-top:14px">다시 하기</button>
+  <button class="btn btn-secondary" id="btn-home">처음으로</button>
+</div>
+
+<script>
+// ══════════ Config ══════════
+let bpm = 50;
+let totalRounds = 10;
+let addValue = 1;
+let experimentMode = false;
+let pupilTracking = false;
+
+// ══════════ State ══════════
+let audioCtx = null;
+let schedTimer = null;
+let rafId = null;
+
+let nextBeatTime = 0;
+let beatIdx = 0;
+let pending = [];
+let cycleLength = 4;
+
+let roundNum = 0;
+let score = 0;
+let streak = 0;
+let bestStreak = 0;
+let missedCount = 0;
+let answered = false;
+let curNum = '';
+let curAns = '';
+let alive = false;
+
+// Experiment-mode trial data
+let inputDigits = [];   // 4 input digits (strings '0'-'9')
+let outputExpected = []; // 4 expected output digits
+let outputCollected = []; // user's collected digits so far
+let trialPhase = 'idle'; // 'input' | 'hold' | 'output' | 'idle'
+let pendingExpScore = null; // expected-answer array for a trial awaiting the final SR flush
+
+// Speech recognition
+let recognition = null;
+let recognitionRunning = false;
+let acceptingInput = false;
+let roundResultBaseline = 0;
+let pendingBaseline = false;
+let prevAns = '';
+const SR_AVAILABLE = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+// Pupil tracking
+let faceMesh = null;
+let pupilVideo = null;
+let pupilCanvas = null;
+let pupilCtx = null;
+let pupilStream = null;
+let pupilRunning = false;
+let currentPIR = 0;
+let pirHistory = [];      // {t, pir, phase, beat, round}
+let pirBaseline = 0;
+
+// ══════════ Korean parsers ══════════
+function parseAsFullNumber(text) {
+  const sino = { '영':0,'공':0,'일':1,'이':2,'삼':3,'사':4,'오':5,'육':6,'륙':6,'칠':7,'팔':8,'구':9 };
+  let total = 0, current = 0, used = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (sino[c] !== undefined) { current = sino[c]; used = true; }
+    else if (c === '천') { total += (current || 1) * 1000; current = 0; used = true; }
+    else if (c === '백') { total += (current || 1) * 100; current = 0; used = true; }
+    else if (c === '십') { total += (current || 1) * 10; current = 0; used = true; }
+  }
+  total += current;
+  if (used && total >= 1000 && total <= 9999) return String(total);
+  return null;
+}
+
+function parseDigits(rawText) {
+  if (!rawText) return '';
+  const text = rawText.toLowerCase();
+  if (/[천백십]/.test(text)) {
+    const fullNum = parseAsFullNumber(text);
+    return fullNum || '';
+  }
+  const stripped = text.replace(/[,\s]/g, '');
+  const arabicMatch = stripped.match(/^\d{4}$/);
+  if (arabicMatch && !/[영공일이삼사오육륙칠팔구]/.test(text)) return arabicMatch[0];
+  return '';
+}
+
+// Per-digit parser for experiment mode: extracts a sequence of single-syllable digits.
+// Chrome ko-KR SR is unreliable on isolated short syllables; this parser is
+// permissive — matches Sino-Korean (영·공·일·이·삼·사·오·육·칠·팔·구), native
+// Korean (하나·둘·셋·넷·다섯·여섯·일곱·여덟·아홉 + abbreviated 한·두·세·네),
+// English digit words, Arabic numerals, and a few common SR mis-hearings.
+function parseDigitSequence(rawText) {
+  if (!rawText) return [];
+  const text = rawText.toLowerCase();
+
+  // Multi-char patterns, sorted longest-first so greedy match prefers
+  // "일곱" (7) over the single char "일" (1).
+  const multiChar = [
+    ['three','3'],['eight','8'],['seven','7'],['zero','0'],
+    ['four','4'],['five','5'],['nine','9'],
+    ['six','6'],['one','1'],['two','2'],['oh','0'],
+    ['하나','1'],['다섯','5'],['여섯','6'],
+    ['일곱','7'],['여덟','8'],['아홉','9'],
+  ];
+
+  // Single-char map. Includes a few well-known SR mis-hearings:
+  //   "육" sometimes drops 받침 → "유"
+  //   "오" sometimes returns "어" (rare) — we skip to avoid false positives
+  //   "공" can be returned for 0
+  const singleChar = {
+    '영':'0','공':'0',
+    '일':'1','이':'2','삼':'3','사':'4',
+    '오':'5','육':'6','륙':'6','칠':'7','팔':'8','구':'9',
+    '한':'1','두':'2','세':'3','네':'4',
+    '둘':'2','셋':'3','넷':'4',
+    '유':'6'
+  };
+
+  const out = [];
+  let i = 0;
+  while (i < text.length) {
+    let matched = false;
+    for (const [w, d] of multiChar) {
+      if (text.substr(i, w.length) === w) {
+        out.push(d); i += w.length; matched = true; break;
+      }
+    }
+    if (matched) continue;
+
+    const c = text[i];
+    if (c >= '0' && c <= '9') { out.push(c); i++; continue; }
+    if (singleChar[c] !== undefined) { out.push(singleChar[c]); i++; continue; }
+    i++;
+  }
+  return out;
+}
+
+function toKoreanNumber(num) {
+  const SINO = ['영','일','이','삼','사','오','육','칠','팔','구'];
+  const UNITS = ['', '십', '백', '천'];
+  const digits = String(num).split('').map(Number);
+  let result = '';
+  for (let i = 0; i < digits.length; i++) {
+    const d = digits[i];
+    const unit = UNITS[digits.length - 1 - i];
+    if (d === 0) continue;
+    if (d === 1 && unit && i !== digits.length - 1) result += unit;
+    else result += SINO[d] + unit;
+  }
+  return result || SINO[0];
+}
+
+// ══════════ Audio ══════════
+function initAudio() {
+  if (!audioCtx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    try { audioCtx = new Ctor({ latencyHint: 'interactive' }); }
+    catch (e) { audioCtx = new Ctor(); }
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+// Physical output delay (Bluetooth/AirPods can add 100-300ms). Audio is
+// scheduled on audioCtx.currentTime but is *heard* this many seconds later,
+// so visual beats must be deferred by the same amount to stay in sync.
+function audioLatency() {
+  if (!audioCtx) return 0;
+  const out = (typeof audioCtx.outputLatency === 'number') ? audioCtx.outputLatency : 0;
+  const base = (typeof audioCtx.baseLatency === 'number') ? audioCtx.baseLatency : 0;
+  return out || base || 0;
+}
+
+function click(t, loud, quiet) {
+  // `quiet` halves the click volume — used during the output phase of
+  // experiment mode so the metronome doesn't drown out single-syllable
+  // utterances picked up by the mic.
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.frequency.value = loud ? 1200 : 900;
+  let amp = loud ? 0.18 : 0.08;
+  if (quiet) amp *= 0.35;
+  g.gain.setValueAtTime(amp, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+  o.start(t); o.stop(t + 0.05);
+}
+
+// ══════════ Scheduler ══════════
+const AHEAD = 0.15;
+const POLL = 25;
+function sec() { return 60 / bpm; }
+
+function schedule() {
+  if (!alive) return;
+  while (nextBeatTime < audioCtx.currentTime + AHEAD) {
+    const isOutputBeat = experimentMode && beatIdx >= 6 && beatIdx <= 9;
+    click(nextBeatTime, beatIdx === 0, isOutputBeat);
+    pending.push({ t: nextBeatTime, b: beatIdx });
+    beatIdx = (beatIdx + 1) % cycleLength;
+    nextBeatTime += sec();
+  }
+  schedTimer = setTimeout(schedule, POLL);
+}
+
+function frame() {
+  if (!alive) return;
+  // Defer visual events by the output latency so on-screen beats, digit
+  // reveals, and the SR input window align with the audible click the user
+  // actually hears through Bluetooth headphones.
+  const now = audioCtx.currentTime - audioLatency();
+  while (pending.length && pending[0].t <= now) onBeat(pending.shift().b);
+  rafId = requestAnimationFrame(frame);
+}
+
+// ══════════ Beat handlers ══════════
+function renderBeatTrack() {
+  const labels = document.getElementById('beat-labels');
+  const row = document.getElementById('beat-row');
+  labels.innerHTML = '';
+  row.innerHTML = '';
+  if (experimentMode) {
+    const ls = ['입','입','입','입','유','유','출','출','출','출'];
+    for (let i = 0; i < 10; i++) {
+      const l = document.createElement('div'); l.className = 'bl'; l.id = `bl${i}`; l.textContent = ls[i];
+      labels.appendChild(l);
+      const d = document.createElement('div'); d.className = 'bd'; d.id = `bd${i}`;
+      row.appendChild(d);
+    }
+  } else {
+    const ls = ['읽기','쉬기','말하기','말하기'];
+    for (let i = 0; i < 4; i++) {
+      const l = document.createElement('div'); l.className = 'bl'; l.id = `bl${i}`; l.textContent = ls[i];
+      labels.appendChild(l);
+      const d = document.createElement('div'); d.className = 'bd'; d.id = `bd${i}`;
+      row.appendChild(d);
+    }
+  }
+}
+
+function onBeat(b) {
+  for (let i = 0; i < cycleLength; i++) {
+    const dot = document.getElementById(`bd${i}`);
+    const lbl = document.getElementById(`bl${i}`);
+    if (dot) dot.className = 'bd';
+    if (lbl) lbl.className = 'bl';
+  }
+  const dot = document.getElementById(`bd${b}`);
+  const lbl = document.getElementById(`bl${b}`);
+  if (lbl) lbl.classList.add('lit');
+  if (dot) {
+    if (experimentMode) {
+      if (b < 4)      dot.classList.add('read');
+      else if (b < 6) dot.classList.add('rest');
+      else            dot.classList.add('answer');
+    } else {
+      if      (b === 0) dot.classList.add('read');
+      else if (b === 1) dot.classList.add('rest');
+      else              dot.classList.add('answer');
+    }
+  }
+
+  if (experimentMode) onBeatExperiment(b);
+  else onBeatGame(b);
+}
+
+// ── Game mode (4-beat cycle) ──
+function onBeatGame(b) {
+  if (b === 0) {
+    if (roundNum > 0 && !answered) prevAns = curAns; else prevAns = '';
+    if (roundNum > 0 && recognition && recognitionRunning) {
+      try { recognition.stop(); } catch (e) {}
+    }
+    acceptingInput = false;
+
+    if (roundNum >= totalRounds) {
+      clearTimeout(schedTimer);
+      setTimeout(() => {
+        if (prevAns) { finalizeMissed(prevAns); prevAns = ''; }
+        endGame();
+      }, 1000);
+      return;
+    }
+    nextRoundGame();
+  } else if (b === 2) {
+    if (prevAns) { finalizeMissed(prevAns); prevAns = ''; }
+    openInputGame();
+  }
+}
+
+function nextRoundGame() {
+  roundNum++;
+  answered = false;
+  acceptingInput = false;
+  pendingBaseline = false;
+
+  const forbiddenFirst = (10 - addValue) % 10;
+  const allowedFirsts = [1,2,3,4,5,6,7,8,9].filter(d => d !== forbiddenFirst);
+  const first = allowedFirsts[Math.floor(Math.random() * allowedFirsts.length)];
+  const rest = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+  curNum = String(first) + rest;
+  curAns = [...curNum].map(d => String((+d + addValue) % 10)).join('');
+
+  const el = document.getElementById('card-number');
+  el.className = 'num-in';
+  el.textContent = curNum;
+
+  document.getElementById('answer-display').className = 'answer-display';
+  document.getElementById('digit-line').textContent = '_ _ _ _';
+  document.getElementById('raw-transcript').textContent = ' ';
+  document.getElementById('mic-pill').textContent = '대기';
+  setFeedback('', '');
+  document.getElementById('s-round').textContent = `${roundNum}/${totalRounds}`;
+}
+
+function openInputGame() {
+  if (answered) return;
+  acceptingInput = true;
+  pendingBaseline = true;
+  document.getElementById('answer-display').className = 'answer-display listening';
+  document.getElementById('mic-pill').textContent = '듣는 중';
+  document.getElementById('raw-transcript').textContent = '말하세요...';
+}
+
+// ── Experiment mode (10-beat cycle) ──
+function onBeatExperiment(b) {
+  if (b === 0) {
+    // Capture the just-finished trial's answer key, then force the recognizer
+    // to finalize the last utterance. Scoring is deferred until that final
+    // result lands (so the 4th digit, spoken on beat 9, isn't dropped).
+    const prevExpected = (roundNum > 0) ? outputExpected.slice() : null;
+    if (recognition && recognitionRunning) {
+      try { recognition.stop(); } catch (e) {}
+    }
+
+    if (roundNum >= totalRounds) {
+      clearTimeout(schedTimer);
+      pendingExpScore = prevExpected;
+      setTimeout(() => {
+        if (pendingExpScore) { scoreExpTrial(pendingExpScore); pendingExpScore = null; }
+        endGame();
+      }, 500);
+      return;
+    }
+
+    if (prevExpected) {
+      pendingExpScore = prevExpected;
+      // Fallback: if no final SR result arrives, score anyway.
+      setTimeout(() => {
+        if (pendingExpScore) { scoreExpTrial(pendingExpScore); pendingExpScore = null; }
+      }, 450);
+    }
+
+    nextRoundExperimentInput();
+    trialPhase = 'input';
+    showInputDigit(0);
+  } else if (b > 0 && b < 4) {
+    showInputDigit(b);
+  } else if (b === 4) {
+    trialPhase = 'hold';
+    hideCard();
+  } else if (b === 6) {
+    trialPhase = 'output';
+    resetExpOutput();
+    openInputExperiment();
+    highlightOutputBox(0);
+  } else if (b === 7 || b === 8 || b === 9) {
+    highlightOutputBox(b - 6);
+  }
+}
+
+// Set up only the new trial's input/answer key. Output state (collected digits,
+// boxes) is intentionally left untouched so the previous trial's result stays
+// visible — and can still be patched by a late SR flush — until beat 6.
+function nextRoundExperimentInput() {
+  roundNum++;
+  answered = false;
+
+  inputDigits = [];
+  for (let i = 0; i < 4; i++) {
+    inputDigits.push(String(Math.floor(Math.random() * 10)));
+  }
+  outputExpected = inputDigits.map(d => String((+d + addValue) % 10));
+  curAns = outputExpected.join('');
+
+  document.getElementById('s-round').textContent = `${roundNum}/${totalRounds}`;
+}
+
+// Reset the answer area for the new trial — runs at beat 6 (output phase start).
+function resetExpOutput() {
+  outputCollected = [];
+  document.getElementById('answer-display').className = 'answer-display';
+  document.getElementById('digit-line').textContent = '_ _ _ _';
+  document.getElementById('raw-transcript').textContent = ' ';
+  document.getElementById('mic-pill').textContent = '대기';
+  setFeedback('', '');
+  for (let i = 0; i < 4; i++) {
+    const ob = document.getElementById(`ob${i}`);
+    ob.className = 'obox';
+    ob.textContent = '_';
+  }
+}
+
+function showInputDigit(idx) {
+  const card = document.getElementById('card');
+  const el = document.getElementById('card-number');
+  card.classList.remove('dim');
+  el.className = 'num-in';
+  el.textContent = inputDigits[idx];
+}
+
+function hideCard() {
+  const card = document.getElementById('card');
+  const el = document.getElementById('card-number');
+  card.classList.add('dim');
+  el.className = '';
+  el.textContent = '유지';
+}
+
+function openInputExperiment() {
+  acceptingInput = true;
+  pendingBaseline = true;
+  document.getElementById('answer-display').className = 'answer-display listening';
+  document.getElementById('mic-pill').textContent = '듣는 중';
+  document.getElementById('raw-transcript').textContent = '한 자리씩 말하세요';
+  hideCard();
+}
+
+function highlightOutputBox(idx) {
+  for (let i = 0; i < 4; i++) {
+    const ob = document.getElementById(`ob${i}`);
+    ob.classList.remove('active');
+    if (i === idx) ob.classList.add('active');
+  }
+}
+
+function applyOutputDigits(digits) {
+  outputCollected = digits.slice(0, 4);
+  for (let i = 0; i < 4; i++) {
+    const ob = document.getElementById(`ob${i}`);
+    if (i < outputCollected.length) {
+      ob.textContent = outputCollected[i];
+      ob.classList.add('filled');
+    } else {
+      ob.textContent = '_';
+      ob.classList.remove('filled');
+    }
+  }
+}
+
+function scoreExpTrial(expectedArr) {
+  acceptingInput = false;
+  const collected = outputCollected.slice(0, 4);
+  const expected = expectedArr.join('');
+  const submitted = collected.join('');
+  if (collected.length < 4) {
+    missedCount++;
+    streak = 0;
+    for (let i = 0; i < 4; i++) {
+      const ob = document.getElementById(`ob${i}`);
+      if (collected[i] === expectedArr[i]) ob.classList.add('correct');
+      else ob.classList.add('wrong');
+    }
+    setFeedback(`시간 초과 (정답 ${expected})`, 'miss');
+  } else if (submitted === expected) {
+    score++;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    for (let i = 0; i < 4; i++) {
+      document.getElementById(`ob${i}`).classList.add('correct');
+    }
+    setFeedback('정답!', 'correct');
+  } else {
+    streak = 0;
+    for (let i = 0; i < 4; i++) {
+      const ob = document.getElementById(`ob${i}`);
+      if (collected[i] === expectedArr[i]) ob.classList.add('correct');
+      else ob.classList.add('wrong');
+    }
+    setFeedback(`오답 (정답 ${expected})`, 'wrong');
+  }
+  document.getElementById('s-score').textContent = score;
+  document.getElementById('s-streak').textContent = streak;
+}
+
+// ══════════ Submit / miss (game mode) ══════════
+function finalizeMissed(missedAnswer) {
+  missedCount++;
+  streak = 0;
+  document.getElementById('s-streak').textContent = 0;
+  setFeedback(`이전 시간 초과 (정답 ${missedAnswer})`, 'miss');
+}
+
+function lateCorrect(ans) {
+  score++;
+  streak++;
+  if (streak > bestStreak) bestStreak = streak;
+  document.getElementById('s-score').textContent = score;
+  document.getElementById('s-streak').textContent = streak;
+  setFeedback(`이전 라운드 정답! (${ans})`, 'correct');
+}
+
+function submit(val) {
+  if (answered || val.length < 4) return;
+  answered = true;
+  acceptingInput = false;
+
+  document.getElementById('digit-line').textContent = val.split('').join(' ');
+  const ad = document.getElementById('answer-display');
+  const pill = document.getElementById('mic-pill');
+  if (val === curAns) {
+    score++;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    ad.className = 'answer-display correct';
+    pill.textContent = '정답';
+    setFeedback('정답!', 'correct');
+  } else {
+    streak = 0;
+    ad.className = 'answer-display wrong';
+    pill.textContent = '오답';
+    setFeedback(`정답: ${curAns}`, 'wrong');
+  }
+  document.getElementById('s-score').textContent = score;
+  document.getElementById('s-streak').textContent = streak;
+}
+
+// ══════════ Speech Recognition ══════════
+function setupRecognition() {
+  if (!SR_AVAILABLE) return null;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  rec.lang = 'ko-KR';
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.maxAlternatives = 3;
+
+  rec.onresult = (e) => {
+    if (pendingBaseline) {
+      roundResultBaseline = e.resultIndex;
+      pendingBaseline = false;
+    }
+    // For each result (= one utterance), try every alternative and keep the
+    // one whose parsed digit sequence is longest. Avoids double-counting the
+    // same utterance via multiple alternatives.
+    let hasFinal = false;
+    const perUtterance = [];
+    for (let i = roundResultBaseline; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) hasFinal = true;
+      let bestText = r[0].transcript;
+      let bestSeq = parseDigitSequence(bestText);
+      for (let j = 1; j < r.length; j++) {
+        const altText = r[j].transcript;
+        const altSeq = parseDigitSequence(altText);
+        if (altSeq.length > bestSeq.length) {
+          bestSeq = altSeq;
+          bestText = altText;
+        }
+      }
+      perUtterance.push({ text: bestText, seq: bestSeq });
+    }
+    const text = perUtterance.map(u => u.text).join(' ').trim();
+    const aggregateSeq = perUtterance.flatMap(u => u.seq);
+
+    if (experimentMode) {
+      // Keep collecting while listening, or while a finished trial is still
+      // waiting for its final flush.
+      if (acceptingInput || pendingExpScore) {
+        document.getElementById('raw-transcript').textContent = text || '...';
+        applyOutputDigits(aggregateSeq);
+      }
+      // The flushed final result for the just-finished trial has landed — score
+      // now with the complete digit sequence (including the last digit).
+      if (pendingExpScore && hasFinal) {
+        scoreExpTrial(pendingExpScore);
+        pendingExpScore = null;
+      }
+      return;
+    }
+
+    // Game mode
+    const digits = parseDigits(text);
+    if (acceptingInput) {
+      document.getElementById('raw-transcript').textContent = text || '...';
+      const padded = (digits + '____').slice(0, 4).split('').join(' ');
+      document.getElementById('digit-line').textContent = padded;
+    }
+    if (!hasFinal || digits.length < 4) return;
+    const sub = digits.substring(0, 4);
+    if (prevAns && !acceptingInput) {
+      if (sub === prevAns) lateCorrect(sub);
+      else finalizeMissed(prevAns);
+      prevAns = '';
+      return;
+    }
+    if (acceptingInput && !answered) submit(sub);
+  };
+
+  rec.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      alert('마이크 권한이 필요합니다.');
+      stopGame();
+    }
+  };
+
+  rec.onend = () => {
+    recognitionRunning = false;
+    if (alive) {
+      setTimeout(() => {
+        if (!alive) return;
+        try { rec.start(); recognitionRunning = true; }
+        catch (e) {
+          setTimeout(() => {
+            if (!alive) return;
+            try { rec.start(); recognitionRunning = true; } catch (e2) {}
+          }, 200);
+        }
+      }, 60);
+    }
+  };
+
+  return rec;
+}
+
+function startRecognition() {
+  if (!recognition) recognition = setupRecognition();
+  if (!recognition) return;
+  if (!recognitionRunning) {
+    try { recognition.start(); recognitionRunning = true; } catch (e) {}
+  }
+}
+
+function stopRecognition() {
+  if (recognition && recognitionRunning) {
+    try { recognition.stop(); } catch (e) {}
+    recognitionRunning = false;
+  }
+}
+
+// ══════════ Pupil Tracking ══════════
+async function startPupilTracking() {
+  setPupilStatus('카메라 요청...');
+  try {
+    pupilStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 320, height: 240, facingMode: 'user' }
+    });
+  } catch (e) {
+    setPupilStatus('카메라 거부');
+    pupilTracking = false;
+    document.getElementById('pupil-mini').style.display = 'none';
+    return false;
+  }
+
+  pupilVideo = document.getElementById('pupil-video');
+  pupilVideo.srcObject = pupilStream;
+  await new Promise(r => { pupilVideo.onloadedmetadata = r; });
+  pupilVideo.play();
+
+  pupilCanvas = document.getElementById('pupil-canvas');
+  pupilCanvas.width = pupilVideo.videoWidth;
+  pupilCanvas.height = pupilVideo.videoHeight;
+  pupilCtx = pupilCanvas.getContext('2d', { willReadFrequently: true });
+
+  setPupilStatus('모델 로드...');
+  let attempts = 0;
+  while (typeof FaceMesh === 'undefined' && attempts < 100) {
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
+  if (typeof FaceMesh === 'undefined') {
+    setPupilStatus('모델 로드 실패');
+    return false;
+  }
+
+  faceMesh = new FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+  });
+  faceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: true,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+  faceMesh.onResults(onFaceMeshResults);
+
+  pupilRunning = true;
+  setPupilStatus('초기화 중');
+  pirHistory = [];
+  pupilLoop();
+  // Baseline = mean of first 2 seconds before game starts
+  setTimeout(() => {
+    if (pirHistory.length > 0) {
+      const baselineSamples = pirHistory.slice(0, Math.min(60, pirHistory.length));
+      pirBaseline = baselineSamples.reduce((s, x) => s + x.pir, 0) / baselineSamples.length;
+      setPupilStatus(`기준 ${pirBaseline.toFixed(2)}`);
+    }
+  }, 2000);
+  return true;
+}
+
+async function pupilLoop() {
+  if (!pupilRunning) return;
+  try { await faceMesh.send({ image: pupilVideo }); }
+  catch (e) {}
+  requestAnimationFrame(pupilLoop);
+}
+
+function onFaceMeshResults(results) {
+  if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+    setPupilStatus('얼굴 미감지');
+    return;
+  }
+  const lm = results.multiFaceLandmarks[0];
+  const w = pupilVideo.videoWidth;
+  const h = pupilVideo.videoHeight;
+
+  pupilCtx.drawImage(pupilVideo, 0, 0, w, h);
+
+  const pir = computePIR(lm, w, h);
+  if (pir === null) return;
+  currentPIR = pir;
+
+  pirHistory.push({
+    t: performance.now(),
+    pir,
+    phase: trialPhase,
+    beat: beatIdx,
+    round: roundNum
+  });
+
+  // Trim history if too long
+  if (pirHistory.length > 6000) pirHistory.shift();
+
+  updatePupilUI(pir);
+}
+
+function computePIR(landmarks, w, h) {
+  // Iris landmarks: 468 (R center), 469-472 (R perim); 473 (L center), 474-477 (L perim)
+  const rCenter = { x: landmarks[468].x * w, y: landmarks[468].y * h };
+  const lCenter = { x: landmarks[473].x * w, y: landmarks[473].y * h };
+  const rPerim = [469,470,471,472].map(i => ({ x: landmarks[i].x*w, y: landmarks[i].y*h }));
+  const lPerim = [474,475,476,477].map(i => ({ x: landmarks[i].x*w, y: landmarks[i].y*h }));
+  const rRadius = rPerim.reduce((s, p) => s + Math.hypot(p.x-rCenter.x, p.y-rCenter.y), 0) / 4;
+  const lRadius = lPerim.reduce((s, p) => s + Math.hypot(p.x-lCenter.x, p.y-lCenter.y), 0) / 4;
+
+  const rRatio = darkRatio(rCenter, rRadius);
+  const lRatio = darkRatio(lCenter, lRadius);
+  if (rRatio === null && lRatio === null) return null;
+  if (rRatio === null) return lRatio;
+  if (lRatio === null) return rRatio;
+  return (rRatio + lRatio) / 2;
+}
+
+function darkRatio(center, radius) {
+  // Crop iris bounding box and count dark pixels (pupil proxy)
+  if (radius < 3) return null;
+  const r = Math.min(radius, 40);
+  const x0 = Math.max(0, Math.floor(center.x - r));
+  const y0 = Math.max(0, Math.floor(center.y - r));
+  const sz = Math.floor(r * 2);
+  const cw = pupilCanvas.width;
+  const ch = pupilCanvas.height;
+  const w = Math.min(sz, cw - x0);
+  const h = Math.min(sz, ch - y0);
+  if (w < 4 || h < 4) return null;
+
+  let imgData;
+  try { imgData = pupilCtx.getImageData(x0, y0, w, h); }
+  catch (e) { return null; }
+  const d = imgData.data;
+
+  // Adaptive threshold: pupil is the darkest region inside iris.
+  // Compute mean brightness, then count pixels below (mean - 25).
+  let sum = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const g = (d[i] + d[i+1] + d[i+2]) / 3;
+    sum += g; n++;
+  }
+  const mean = sum / n;
+  const thr = Math.max(20, mean - 25);
+
+  // Count dark pixels within inscribed circle
+  let dark = 0, tot = 0;
+  const cx = w / 2, cy = h / 2;
+  const innerR = r * 0.9;
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const dx = px - cx, dy = py - cy;
+      if (dx*dx + dy*dy > innerR*innerR) continue;
+      tot++;
+      const i = (py * w + px) * 4;
+      const g = (d[i] + d[i+1] + d[i+2]) / 3;
+      if (g < thr) dark++;
+    }
+  }
+  if (tot < 10) return null;
+  return Math.sqrt(dark / tot); // sqrt makes it more linear (area→radius)
+}
+
+function updatePupilUI(pir) {
+  const radius = Math.min(17, Math.max(3, pir * 22));
+  const svg = document.getElementById('pupil-svg');
+  if (svg) svg.setAttribute('r', radius.toFixed(1));
+  document.getElementById('pir-val').textContent = pir.toFixed(2);
+  if (pirBaseline > 0) {
+    const rel = ((pir / pirBaseline - 1) * 100).toFixed(0);
+    const sign = rel > 0 ? '+' : '';
+    setPupilStatus(`${sign}${rel}%`);
+  }
+}
+
+function setPupilStatus(msg) {
+  const el = document.getElementById('pupil-status');
+  if (el) el.textContent = msg;
+}
+
+function recordPhase(phase) {
+  // marker for later analysis (already encoded in pirHistory items)
+}
+
+function stopPupilTracking() {
+  pupilRunning = false;
+  if (pupilStream) {
+    pupilStream.getTracks().forEach(t => t.stop());
+    pupilStream = null;
+  }
+  if (faceMesh) {
+    try { faceMesh.close(); } catch (e) {}
+    faceMesh = null;
+  }
+}
+
+function summarizePupilResults() {
+  if (pirHistory.length === 0) {
+    document.getElementById('pupil-summary').style.display = 'none';
+    return;
+  }
+  const byPhase = { input: [], hold: [], output: [], idle: [] };
+  pirHistory.forEach(p => {
+    if (byPhase[p.phase]) byPhase[p.phase].push(p.pir);
+  });
+  const mean = (arr) => arr.length ? arr.reduce((s,x)=>s+x,0)/arr.length : null;
+  const max = (arr) => arr.length ? Math.max(...arr) : null;
+  const fmt = (v) => v === null ? '-' : v.toFixed(2);
+  const rel = (v) => v === null || pirBaseline <= 0 ? '-' : `${((v/pirBaseline - 1)*100).toFixed(0)}%`;
+
+  document.getElementById('ps-base').textContent  = fmt(pirBaseline);
+  document.getElementById('ps-input').textContent = fmt(mean(byPhase.input));
+  document.getElementById('ps-hold').textContent  = fmt(mean(byPhase.hold));
+  document.getElementById('ps-output').textContent= fmt(mean(byPhase.output));
+  const peakAll = max(pirHistory.map(p => p.pir));
+  document.getElementById('ps-peak').textContent = rel(peakAll);
+  document.getElementById('pupil-summary').style.display = 'block';
+}
+
+function movingAverage(arr, win) {
+  const out = [];
+  const half = Math.floor(win / 2);
+  for (let i = 0; i < arr.length; i++) {
+    let sum = 0, n = 0;
+    for (let j = Math.max(0, i - half); j <= Math.min(arr.length - 1, i + half); j++) {
+      sum += arr[j]; n++;
+    }
+    out.push(sum / n);
+  }
+  return out;
+}
+
+function drawPupilChart() {
+  const box = document.getElementById('pupil-chart-box');
+  if (!pupilTracking || pirHistory.length < 5) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = 'block';
+
+  const canvas = document.getElementById('pupil-chart');
+  const cssW = canvas.clientWidth || 320;
+  const cssH = 160;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const W = cssW, H = cssH;
+  const padL = 34, padR = 10, padT = 10, padB = 18;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  ctx.clearRect(0, 0, W, H);
+
+  const t0 = pirHistory[0].t;
+  const t1 = pirHistory[pirHistory.length - 1].t;
+  const dt = Math.max(1, t1 - t0);
+
+  let minP = Infinity, maxP = -Infinity;
+  pirHistory.forEach(p => { if (p.pir < minP) minP = p.pir; if (p.pir > maxP) maxP = p.pir; });
+  if (pirBaseline > 0) { minP = Math.min(minP, pirBaseline); maxP = Math.max(maxP, pirBaseline); }
+  const padP = (maxP - minP) * 0.12 || 0.05;
+  minP -= padP; maxP += padP;
+  const rangeP = Math.max(0.01, maxP - minP);
+
+  const xOf = (t) => padL + ((t - t0) / dt) * plotW;
+  const yOf = (p) => padT + (1 - (p - minP) / rangeP) * plotH;
+
+  // Phase background bands
+  const phaseColors = {
+    input:  'rgba(77,166,255,.14)',
+    hold:   'rgba(136,119,221,.14)',
+    output: 'rgba(255,159,67,.14)',
+    idle:   'rgba(255,255,255,.02)'
+  };
+  let bandStart = 0;
+  for (let i = 1; i <= pirHistory.length; i++) {
+    const prev = pirHistory[i - 1];
+    const cur = pirHistory[i];
+    if (i === pirHistory.length || cur.phase !== prev.phase) {
+      const x0 = xOf(pirHistory[bandStart].t);
+      const x1 = xOf(prev.t);
+      ctx.fillStyle = phaseColors[prev.phase] || 'rgba(0,0,0,0)';
+      ctx.fillRect(x0, padT, Math.max(1, x1 - x0), plotH);
+      bandStart = i;
+    }
+  }
+
+  // Baseline reference
+  if (pirBaseline > 0) {
+    const yb = yOf(pirBaseline);
+    ctx.strokeStyle = 'rgba(119,119,170,.7)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(padL, yb);
+    ctx.lineTo(W - padR, yb);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Smoothed PIR line
+  const sm = movingAverage(pirHistory.map(p => p.pir), 7);
+  ctx.strokeStyle = '#4da6ff';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  for (let i = 0; i < pirHistory.length; i++) {
+    const x = xOf(pirHistory[i].t);
+    const y = yOf(sm[i]);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#7777aa';
+  ctx.font = '9px -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(maxP.toFixed(2), 2, padT + 7);
+  ctx.fillText(minP.toFixed(2), 2, H - padB + 6);
+  ctx.textAlign = 'right';
+  ctx.fillText(`${((t1 - t0) / 1000).toFixed(0)}초`, W - padR, H - 5);
+  ctx.textAlign = 'left';
+}
+
+// ══════════ Game lifecycle ══════════
+async function startGame() {
+  if (!SR_AVAILABLE) {
+    document.getElementById('browser-warning').style.display = 'block';
+    return;
+  }
+  initAudio();
+
+  cycleLength = experimentMode ? 10 : 4;
+  if (experimentMode) bpm = 60;
+
+  score = 0; streak = 0; bestStreak = 0; missedCount = 0;
+  roundNum = 0; answered = true;
+  beatIdx = 0; pending = []; alive = true;
+  acceptingInput = false; pendingBaseline = false; prevAns = '';
+  outputCollected = []; outputExpected = []; inputDigits = [];
+  trialPhase = 'idle'; pendingExpScore = null;
+  pirHistory = []; pirBaseline = 0;
+
+  document.getElementById('s-score').textContent  = 0;
+  document.getElementById('s-streak').textContent = 0;
+  document.getElementById('s-round').textContent  = '-';
+  document.getElementById('card-number').textContent = '...';
+  document.getElementById('card-number').className  = '';
+  document.getElementById('card').classList.remove('dim');
+  document.getElementById('card').classList.toggle('exp-mode', experimentMode);
+  document.getElementById('answer-display').className = 'answer-display';
+  document.getElementById('digit-line').textContent = '_ _ _ _';
+  document.getElementById('raw-transcript').textContent = ' ';
+  document.getElementById('mic-pill').textContent = '대기';
+  document.getElementById('output-boxes').style.display = experimentMode ? 'flex' : 'none';
+  document.getElementById('pupil-mini').style.display = (experimentMode && pupilTracking) ? 'flex' : 'none';
+  setFeedback('', '');
+
+  renderBeatTrack();
+  showScreen('game');
+
+  if (experimentMode && pupilTracking) {
+    const ok = await startPupilTracking();
+    if (!ok) {
+      // continue without pupil
+    }
+    // Brief baseline period before first beat
+    await new Promise(r => setTimeout(r, 2200));
+  }
+
+  startRecognition();
+
+  nextBeatTime = audioCtx.currentTime + 0.5;
+  schedule();
+  frame();
+}
+
+function endGame() {
+  alive = false;
+  clearTimeout(schedTimer);
+  cancelAnimationFrame(rafId);
+  stopRecognition();
+  if (pupilTracking) {
+    summarizePupilResults();
+    stopPupilTracking();
+  } else {
+    document.getElementById('pupil-summary').style.display = 'none';
+    document.getElementById('pupil-chart-box').style.display = 'none';
+  }
+  document.getElementById('r-score').textContent  = score;
+  document.getElementById('r-sub').textContent    = `/ ${totalRounds} 정답`;
+  document.getElementById('r-streak').textContent = bestStreak;
+  document.getElementById('r-missed').textContent = missedCount;
+  showScreen('results');
+  // Chart must be drawn after the results screen is visible so the canvas
+  // has a non-zero client width.
+  if (pupilTracking) requestAnimationFrame(() => drawPupilChart());
+}
+
+function stopGame() {
+  alive = false;
+  clearTimeout(schedTimer);
+  cancelAnimationFrame(rafId);
+  stopRecognition();
+  stopPupilTracking();
+  showScreen('start');
+}
+
+function setFeedback(msg, cls) {
+  const el = document.getElementById('feedback');
+  el.textContent = msg;
+  el.className = cls;
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+}
+
+// ══════════ Mode toggle & UI sync ══════════
+function applyModeUI() {
+  document.getElementById('tab-game').classList.toggle('on', !experimentMode);
+  document.getElementById('tab-exp').classList.toggle('on', experimentMode);
+  document.getElementById('game-rules').style.display = experimentMode ? 'none' : 'block';
+  document.getElementById('exp-rules').style.display  = experimentMode ? 'block' : 'none';
+  document.getElementById('pupil-block').style.display = experimentMode ? 'block' : 'none';
+  document.getElementById('exp-bpm-info').style.display = experimentMode ? 'block' : 'none';
+  document.getElementById('bpm-row').style.display = experimentMode ? 'none' : 'flex';
+
+  // +2 only in game mode
+  document.querySelector('[data-add="2"]').classList.toggle('hidden', experimentMode);
+  if (experimentMode && addValue === 2) {
+    addValue = 1;
+    document.querySelectorAll('[data-add]').forEach(b => b.classList.toggle('on', b.dataset.add === '1'));
+  }
+  updateExample();
+}
+
+function updateExample() {
+  const sample = '5294';
+  const ans = [...sample].map(d => String((+d + addValue) % 10)).join('');
+  document.getElementById('game-title').textContent = `더하기 ${addValue}`;
+
+  // Game-mode example (Korean number form)
+  const kor = toKoreanNumber(+ans);
+  document.getElementById('rules-example').innerHTML =
+    `${sample} <span style="color:var(--orange)">→</span> "${kor}"`;
+  const wrapMsg = addValue === 1 ? '(9 + 1 = 0)'
+    : addValue === 2 ? '(8 + 2 = 0, 9 + 2 = 1)'
+    : '(7 + 3 = 0, 8 + 3 = 1, 9 + 3 = 2)';
+  document.getElementById('rules-text').innerHTML =
+    `각 자리에 ${addValue}를 더한 수를 박자에 맞춰 <strong style="color:var(--orange)">한국어 수</strong>로 읽으세요. ${wrapMsg}`;
+
+  // Experiment-mode example (digit-by-digit)
+  const expIn = sample.split('').join(' · ');
+  const expOut = ans.split('').join(' · ');
+  document.getElementById('exp-example').innerHTML =
+    `${expIn} <span style="color:var(--orange)">→</span> ${expOut}`;
+}
+
+// ══════════ Event listeners ══════════
+document.getElementById('tab-game').addEventListener('click', () => {
+  experimentMode = false;
+  applyModeUI();
+});
+document.getElementById('tab-exp').addEventListener('click', () => {
+  experimentMode = true;
+  applyModeUI();
+});
+document.getElementById('pupil-toggle').addEventListener('change', (e) => {
+  pupilTracking = e.target.checked;
+});
+
+document.querySelectorAll('[data-bpm]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-bpm]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    bpm = Number(btn.dataset.bpm);
+  });
+});
+
+document.querySelectorAll('[data-rounds]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-rounds]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    totalRounds = Number(btn.dataset.rounds);
+  });
+});
+
+document.querySelectorAll('[data-add]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-add]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    addValue = Number(btn.dataset.add);
+    updateExample();
+  });
+});
+
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-stop').addEventListener('click', stopGame);
+document.getElementById('btn-restart').addEventListener('click', startGame);
+document.getElementById('btn-home').addEventListener('click', () => { stopRecognition(); stopPupilTracking(); showScreen('start'); });
+
+applyModeUI();
+
+if (!SR_AVAILABLE) {
+  document.getElementById('browser-warning').style.display = 'block';
+  document.getElementById('btn-start').textContent = '브라우저 미지원';
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-start').style.opacity = '0.5';
+}
+</script>
+</body>
+</html>
